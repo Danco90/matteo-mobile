@@ -3,6 +3,8 @@ package com.example.matteomobile.rest;
 import com.example.matteomobile.models.*;
 import com.example.matteomobile.services.BTService;
 import com.example.matteomobile.services.FonoQueryService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
@@ -14,6 +16,8 @@ import java.util.List;
 @RestController
 public class MobileController
 {
+
+    private Logger logger = LoggerFactory.getLogger(this.getClass());
 
     private final String ORDERS = "/orders";
 
@@ -27,6 +31,7 @@ public class MobileController
     @PostMapping(ORDERS)
     OrderResponse bookMobile(@RequestBody OrderRequest request) {
 
+        long start1 = System.currentTimeMillis();
         // Request 1 should be Non-blocking (Async) as it retrieves additional info from FonaAPI (probably faster)
         DeviceInfo mobileInfo = fonoService.postForDeviceInfo(request.getModel(), request.getBrand());
 
@@ -37,6 +42,10 @@ public class MobileController
         response.set_2g_bands(mobileInfo.get_2g_bands());
         response.set_3g_bands(mobileInfo.get_3g_bands());
         response.set_4g_bands(mobileInfo.get_4g_bands());
+
+        long end1 = System.currentTimeMillis();
+        logger.info("Book Mobile - Elapsed Time in milli seconds: "+ (end1-start1));
+
 
         return response;
     }
