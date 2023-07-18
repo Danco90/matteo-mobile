@@ -3,6 +3,8 @@ package com.example.matteomobile.rest;
 import com.example.matteomobile.models.*;
 import com.example.matteomobile.services.BTService;
 import com.example.matteomobile.services.FonoQueryService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
@@ -10,10 +12,12 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 @RestController
 public class MobileController
 {
+    private Logger logger = LoggerFactory.getLogger(this.getClass());
 
     private final String ORDERS = "/orders";
 
@@ -27,16 +31,40 @@ public class MobileController
     @PostMapping(ORDERS)
     OrderResponse bookMobile(@RequestBody OrderRequest request) {
 
+        //long start1 = System.nanoTime();
+        long start1 = System.currentTimeMillis();
+
         // Request 1 should be Non-blocking (Async) as it retrieves additional info from FonaAPI (probably faster)
-        DeviceInfo mobileInfo = fonoService.postForDeviceInfo(request.getModel(), request.getBrand());
+        //DeviceInfo mobileInfo = fonoService.postForDeviceInfo(request.getModel(), request.getBrand());
+        CompletableFuture<DeviceInfo> mobileInfoAsync =
+                CompletableFuture.supplyAsync(() ->
+                        fonoService.postForDeviceInfo(request.getModel(), request.getBrand())
+                );
 
         // Request 2 : unfortunately depends on previous one
-        OrderResponse response = service.bookDevice(request);
+        //OrderResponse response = service.bookDevice(request);
+        CompletableFuture<OrderResponse> responseAsync =
+                CompletableFuture.supplyAsync(() ->
+                        service.bookDevice(request)
+                );
+
+        CompletableFuture<Void> bothFutures =
+                CompletableFuture.allOf(mobileInfoAsync, responseAsync);
+
+        bothFutures.join();
+        DeviceInfo mobileInfo = mobileInfoAsync.join();
+        OrderResponse response = responseAsync.join();
 
         response.setTechnology(mobileInfo.getTechnology());
         response.set_2g_bands(mobileInfo.get_2g_bands());
         response.set_3g_bands(mobileInfo.get_3g_bands());
         response.set_4g_bands(mobileInfo.get_4g_bands());
+
+        //long end1 = System.nanoTime();
+        //logger.info("Book Mobile - Elapsed Time in millis seconds: "+ (end1-start1)/ 1_000_000);
+        long end1 = System.currentTimeMillis();
+        logger.info("Book Mobile - Elapsed Time in millis seconds: "+ (end1-start1));
+
 
         return response;
     }
