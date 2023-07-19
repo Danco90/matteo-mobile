@@ -12,6 +12,7 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.client.RestTemplate;
+import reactor.core.publisher.Mono;
 
 @Service
 public class FonoQueryService
@@ -49,7 +50,7 @@ public class FonoQueryService
         }
     }
 
-    public DeviceInfo postForDeviceInfo(String name, String brand)
+    public Mono<DeviceInfo> postForDeviceInfo(String name, String brand)
     {
         logger.debug("get device characteristics from fonaAPI  begins");
         ResponseEntity<FonaResponseBean> response;
@@ -71,16 +72,18 @@ public class FonoQueryService
                     .append(AND).append("brand=").append(brand).toString();
             //Rest call 2
             response = restTemplate.postForEntity(FONOAPI_BASE_URI + GET_DEVICE , reqStr, FonaResponseBean.class);
-            return DeviceInfo.builder().deviceName(name).brand(brand)
+            return Mono.just(
+                    DeviceInfo.builder().deviceName(name).brand(brand)
                     .technology(TECH)._2g_bands(response.getBody().get_2g_bands())
                     ._3g_bands(response.getBody().get_3g_bands())
-                    ._4g_bands(response.getBody().get_4g_bands()).build();
+                    ._4g_bands(response.getBody().get_4g_bands()).build()
+            );
         }
         catch (HttpClientErrorException e)
-        {   logger.info("INPUT ERROR : Invalid input, cause  " + e.getMessage()); return defaultInfo; }
+        {   logger.info("INPUT ERROR : Invalid input, cause  " + e.getMessage()); return Mono.just(defaultInfo); }
         catch (RestClientResponseException | ResourceAccessException e)
         {  logger.info("Response timeout : Failed to get remote resource because  " + e.getMessage());
-            return defaultInfo;
+            return Mono.just(defaultInfo);
         }
 
     }

@@ -8,6 +8,7 @@ import com.example.matteomobile.repos.MobileRepository;
 import com.example.matteomobile.repos.OrderRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
 import java.util.HashSet;
@@ -59,7 +60,7 @@ public class BTService {
                         mobile.isAvailable())
                 .findAny().isPresent();
     }
-    public OrderResponse bookDevice(OrderRequest request)
+    public Mono<OrderResponse> bookDevice(OrderRequest request)
     {
 
         //Find any available and return
@@ -86,9 +87,10 @@ public class BTService {
                     .mobiles(mobs).build();
             ordRepo.save(order);
 
-            return OrderResponse.builder().brand(anyMobExisting.getBrand())
+            return Mono.just(OrderResponse.builder().brand(anyMobExisting.getBrand())
                     .model(anyMobExisting.getModel()).available(!anyMobExisting.isAvailable())
-                    .bookingDate(bookingDate).customer(customer).build();
+                    .bookingDate(bookingDate).customer(customer).build()
+            );
         } else {
             anyMobExisting = mobRepo.findAll().stream()
                     .filter(mobile -> mobile.getBrand().equals(request.getBrand()) &&
@@ -101,10 +103,11 @@ public class BTService {
                             .anyMatch(m -> m.getId() == anyMobExisting.getId())).findAny();
             Order order=optOrder.get();
 
-            return OrderResponse.builder().brand(anyMobExisting.getBrand())
+            return Mono.just(OrderResponse.builder().brand(anyMobExisting.getBrand())
                     .model(anyMobExisting.getModel()).available(!anyMobExisting.isAvailable())
                     .bookingDate(order.getBookingDate()).customer(order.getCustomer())
-                    .build();
+                    .build()
+            );
         }
 
     }
