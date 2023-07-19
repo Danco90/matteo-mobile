@@ -29,25 +29,25 @@ public class MobileController
     FonoQueryService fonoService;
 
     @PostMapping(ORDERS)
-    OrderResponse bookMobile(@RequestBody OrderRequest request) {
+    Mono<OrderResponse> bookMobile(@RequestBody OrderRequest request) {
 
         long start1 = System.currentTimeMillis();
-        // Request 1 should be Non-blocking (Async) as it retrieves additional info from FonaAPI (probably faster)
-        DeviceInfo mobileInfo = fonoService.postForDeviceInfo(request.getModel(), request.getBrand());
 
-        // Request 2 : unfortunately depends on previous one
-        OrderResponse response = service.bookDevice(request);
+        //Reactive approach
+        return service.bookDevice(request)
+                        .zipWith(fonoService.postForDeviceInfo(request.getModel(), request.getBrand()))
+                                .map(tuple2 -> {
+                                    OrderResponse response = tuple2.getT1();
+                                    response.setTechnology(tuple2.getT2().getTechnology());
+                                    response.set_2g_bands(tuple2.getT2().get_2g_bands());
+                                    response.set_3g_bands(tuple2.getT2().get_3g_bands());
+                                    response.set_4g_bands(tuple2.getT2().get_4g_bands());
 
-        response.setTechnology(mobileInfo.getTechnology());
-        response.set_2g_bands(mobileInfo.get_2g_bands());
-        response.set_3g_bands(mobileInfo.get_3g_bands());
-        response.set_4g_bands(mobileInfo.get_4g_bands());
+                                    long end1 = System.currentTimeMillis();
+                                    logger.info("Book Mobile - Elapsed Time in milli seconds: "+ (end1-start1));
 
-        long end1 = System.currentTimeMillis();
-        logger.info("Book Mobile - Elapsed Time in milli seconds: "+ (end1-start1));
-
-
-        return response;
+                                    return response;
+                                });
     }
 
     @GetMapping(MOBILES + "/{id}")
